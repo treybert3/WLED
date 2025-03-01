@@ -27,3 +27,5 @@ Then 1 more complication to wipe overall is its actually built in 2 stages: ligh
 
 Hope that helps the next person.
 
+The edits are exclusive to fx.cpp in the color_wipe function and the meta data for mode_color_wipe_random (to add the custom1 slider)
+
