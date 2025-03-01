@@ -202,19 +202,49 @@ static const char _data_FX_MODE_STROBE_RAINBOW[] PROGMEM = "Strobe Rainbow@!;,!;
  */
 uint16_t color_wipe(bool rev, bool useRandomColors) {
   if (SEGLEN <= 1) return mode_static();
-  uint32_t cycleTime = 750 + (255 - SEGMENT.speed)*150;
-  uint32_t perc = strip.now % cycleTime;
-  unsigned prog = (perc * 65535) / cycleTime;
-  bool back = (prog > 32767);
+
+  //segment.speed 0 to 255
+  uint32_t delayTime = (SEGMENT.custom1)*1000; //1-255 seconds
+  uint32_t cycleTime = 750 + (255 - SEGMENT.speed)*150; //speed is 0-255, roughly 1-39 seconds
+  uint32_t totalTime = delayTime*2 + cycleTime;
+  uint32_t halfCycleTime = cycleTime >> 1;
+
+  uint32_t perc = (strip.now % totalTime);                  //time in ms of current cycle
+  uint32_t p1 = halfCycleTime;                              //phase1: first wipe end, start delay
+  uint32_t p2 = halfCycleTime + delayTime;                  //phase2: first delay end, start second wipe
+  uint32_t p3 = halfCycleTime + delayTime + halfCycleTime;  //phase3: second wipe end, start second delay
+  
+
+  //unsigned prog = (perc * 65535) / cycleTime;
+  //unsigned prog = (perc > cycleTime)? 65535 : ((perc * 65535) / cycleTime); //if the current time is greater than the cycle time, then we're at 100% and waiting. Else, calculate %
+  unsigned prog = 0;
+  if (perc < p1) { //phase0
+    prog = (perc * 65535) / cycleTime;
+  }
+  
+  if ((perc >= p1) && (perc < p2)) { //phase1
+    prog = 32767;
+  }
+
+  if ((perc >=p2) && (perc < p3)) { //phase2
+    prog = (((perc - p2) * 65535) / cycleTime) + 32768;
+  }
+
+  if (perc >= p3) { //phase3
+    prog = 65535;
+  }
+
+  bool back = (prog > 32767); //true if time is past the midpoint
+
   if (back) {
     prog -= 32767;
-    if (SEGENV.step == 0) SEGENV.step = 1;
+    if (SEGENV.step == 0) SEGENV.step = 1; //if we were in the initial
   } else {
     if (SEGENV.step == 2) SEGENV.step = 3; //trigger color change
   }
 
   if (useRandomColors) {
-    if (SEGENV.call == 0) {
+    if (SEGENV.call == 0) { //call == 0 on first run. Pick random number for aux0, then set step to 3
       SEGENV.aux0 = hw_random8();
       SEGENV.step = 3;
     }
@@ -222,7 +252,7 @@ uint16_t color_wipe(bool rev, bool useRandomColors) {
       SEGENV.aux1 = get_random_wheel_index(SEGENV.aux0);
       SEGENV.step = 2;
     }
-    if (SEGENV.step == 3) {
+    if (SEGENV.step == 3) { //reset step to 0, get random color from aux1 (from step == 1)
       SEGENV.aux0 = get_random_wheel_index(SEGENV.aux1);
       SEGENV.step = 0;
     }
@@ -278,7 +308,7 @@ static const char _data_FX_MODE_COLOR_SWEEP[] PROGMEM = "Sweep@!,!;!,!;!";
 uint16_t mode_color_wipe_random(void) {
   return color_wipe(false, true);
 }
-static const char _data_FX_MODE_COLOR_WIPE_RANDOM[] PROGMEM = "Wipe Random@!;;!";
+static const char _data_FX_MODE_COLOR_WIPE_RANDOM[] PROGMEM = "Wipe Random@!,,End Delay,,,End Delay;;!;;c1=0"; 
 
 
 /*
