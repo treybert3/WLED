@@ -10,75 +10,20 @@
 
   </p>
 
-# Welcome to my project WLED! ✨
+This is a modification to the color_wipe function and the Wipe Random effect to add a delay slider.
 
-A fast and feature-rich implementation of an ESP32 and ESP8266 webserver to control NeoPixel (WS2812B, WS2811, SK6812) LEDs or also SPI based chipsets like the WS2801 and APA102!
+The delay adds X-seconds to the end of the color wipe. I'm a coding noob, so use at your own risk.
 
-## ⚙️ Features
-- WS2812FX library with more than 100 special effects  
-- FastLED noise effects and 50 palettes  
-- Modern UI with color, effect and segment controls  
-- Segments to set different effects and colors to user defined parts of the LED string  
-- Settings page - configuration via the network  
-- Access Point and station mode - automatic failsafe AP  
-- [Up to 10 LED outputs](https://kno.wled.ge/features/multi-strip/#esp32) per instance
-- Support for RGBW strips  
-- Up to 250 user presets to save and load colors/effects easily, supports cycling through them.  
-- Presets can be used to automatically execute API calls  
-- Nightlight function (gradually dims down)  
-- Full OTA software updateability (HTTP + ArduinoOTA), password protectable  
-- Configurable analog clock (Cronixie, 7-segment and EleksTube IPS clock support via usermods) 
-- Configurable Auto Brightness limit for safe operation  
-- Filesystem-based config for easier backup of presets and settings  
+What took me a while to understand is that most effects are basically a function that runs around 20 times a second with a timestamp as its only input. The function then determines based on that timeline what to do. In the case of the Wipe, it:
 
-## 💡 Supported light control interfaces
-- WLED app for [Android](https://play.google.com/store/apps/details?id=com.aircoookie.WLED) and [iOS](https://apps.apple.com/us/app/wled/id1475695033)
-- JSON and HTTP request APIs  
-- MQTT   
-- E1.31, Art-Net, DDP and TPM2.net
-- [diyHue](https://github.com/diyhue/diyHue) (Wled is supported by diyHue, including Hue Sync Entertainment under udp. Thanks to [Gregory Mallios](https://github.com/gmallios))
-- [Hyperion](https://github.com/hyperion-project/hyperion.ng)
-- UDP realtime  
-- Alexa voice control (including dimming and color)  
-- Sync to Philips hue lights  
-- Adalight (PC ambilight via serial) and TPM2  
-- Sync color of multiple WLED devices (UDP notifier)  
-- Infrared remotes (24-key RGB, receiver required)  
-- Simple timers/schedules (time from NTP, timezones/DST supported)  
+Takes the current time
+Breaks the time down into a cycle
+Determines where in the cycle it currently is. Ie if my current time is 30 seconds and my cycles operate at 20 seconds, I'm therefore 10 seconds (out of 20, 50%) into the second cycle.
+Light up the string based on where it should be at 50%.
 
-## 📲 Quick start guide and documentation
+What I therefore ended up doing is modifying that cycleTime to also include a delay portion, which I called totalTime. So if my cycleTime was 20 seconds and my delayTime is 10 seconds, my totalTime is 30 seconds. So if it determines its at 25 of 30 seconds, the function ultimately should be doing nothing. I would have ultimately used aux0 and aux1 to record a time and simply wait until it elapsed, but these variables were already used to track next color and current color.
 
-See the [documentation on our official site](https://kno.wled.ge)!
+Then 1 more complication to wipe overall is its actually built in 2 stages: light on then turn off in reverse. If the reverse portion isnt used, it simply changes color after the first half so it looks like 2 cycles but its actually 1. So I'm actually adding a delay after each of the 2 wipes.
 
-[On this page](https://kno.wled.ge/basics/tutorials/) you can find excellent tutorials and tools to help you get your new project up and running!
-
-## 🖼️ User interface
-<img src="/images/macbook-pro-space-gray-on-the-wooden-table.jpg" width="50%"><img src="/images/walking-with-iphone-x.jpg" width="50%">
-
-## 💾 Compatible hardware
-
-See [here](https://kno.wled.ge/basics/compatible-hardware)!
-
-## ✌️ Other
-
-Licensed under the EUPL v1.2 license  
-Credits [here](https://kno.wled.ge/about/contributors/)!
-
-Join the Discord server to discuss everything about WLED!
-
-<a href="https://discord.gg/QAh7wJHrRM"><img src="https://discordapp.com/api/guilds/473448917040758787/widget.png?style=banner2" width="25%"></a>
-
-Check out the WLED [Discourse forum](https://wled.discourse.group)!  
-
-You can also send me mails to [dev.aircoookie@gmail.com](mailto:dev.aircoookie@gmail.com), but please, only do so if you want to talk to me privately.  
-
-If WLED really brightens up your day, you can [![](https://img.shields.io/badge/send%20me%20a%20small%20gift-paypal-blue.svg?style=flat-square)](https://paypal.me/aircoookie)
-
-
-*Disclaimer:*   
-
-If you are prone to photosensitive epilepsy, we recommended you do **not** use this software.  
-If you still want to try, don't use strobe, lighting or noise modes or high effect speed settings.
-
-As per the EUPL license, I assume no liability for any damage to you or any other person or equipment.  
+Hope that helps the next person.
 
